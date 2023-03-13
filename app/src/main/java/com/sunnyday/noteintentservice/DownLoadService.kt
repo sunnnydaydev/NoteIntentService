@@ -12,7 +12,7 @@ import android.util.Log
 class DownLoadService : IntentService("FileDownLoadThread") {
     private val tag = "DownLoadService"
     override fun onHandleIntent(intent: Intent?) {
-        Log.d(tag, "onHandleIntent:Thread info[thread id -> ${Thread.currentThread().id} thread name -> ${Thread.currentThread().name}")
+        Log.d(tag, "onHandleIntent Thread info： thread id -> ${Thread.currentThread().id} thread name -> ${Thread.currentThread().name}")
 
         Log.d(tag, "开始下载->")
         Log.d(tag, "下载ing...")

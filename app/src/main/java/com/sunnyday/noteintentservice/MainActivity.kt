@@ -10,7 +10,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         findViewById<Button>(R.id.downLoad).setOnClickListener {
-            startService(Intent(this,MainActivity::class.java))
+            startService(Intent(this,DownLoadService::class.java))
         }
     }
 }
