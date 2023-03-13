@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">NoteIntentService</string>
+    <string name="download">DownLoad</string>
 </resources>
