@@ -61,13 +61,53 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-使用十分简单，
+```kotlin
+ //第一次开启 
+ D/DownLoadService: onCreate
+ D/DownLoadService: onStartCommand：startId->1
+ D/DownLoadService: onStart
+ D/DownLoadService: onHandleIntent Thread info： thread id -> 62 thread name -> IntentService[FileDownLoadThread]
+ D/DownLoadService: 开始下载->
+ D/DownLoadService: 下载ing...
+
+ //第二次开启
+ D/DownLoadService: onStartCommand：startId->2
+ D/DownLoadService: onStart
+ D/DownLoadService: 下载完成
+ D/DownLoadService: onHandleIntent Thread info： thread id -> 62 thread name -> IntentService[FileDownLoadThread]
+ D/DownLoadService: 开始下载->
+ D/DownLoadService: 下载ing...
+ D/DownLoadService: 下载完成
+ D/DownLoadService: onDestroy
+```
+
+连续点击两次按钮，可以观察到log：
+
+(1) IntentService的生命周期是这样的
+
+onCreate -> onStartCommand -> onStart -> onHandleIntent -> onDestroy
+
+(2) 系统默认帮我们开启一个子线程，我们可以在onHandleIntent中做一些耗时任务
+
+(3) Service只会被创建一次，多次绑定onStartCommand回调多次
+
+(4) 所有任务完成时onDestroy自动回调
 
 # 介绍
 
+- IntentService是Service的一个子类，内部维护了一个工作线程，他会把所有的任务都放到工作线程中处理。
+- 多次开启IntentService时，每一次的开启的任务都会放到工作线程中处理，当所有的任务完成时他会自动调用stopSelf方法来结束Service
+- onBind方法不会回调
+- onStart方法内部进行了默认实现是IntentService的核心
+
+
 # 源码分析
 
+// todo 把HandlerThread 回顾下。 再分析IntentService。
+
 # 替代方案
+
+JobIntentService
 
 # 参考
 
