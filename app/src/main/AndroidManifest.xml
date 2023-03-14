@@ -14,6 +14,9 @@
         android:theme="@style/Theme.NoteIntentService"
         tools:targetApi="31">
         <activity
+            android:name=".HandlerThreadActivity"
+            android:exported="false" />
+        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
@@ -22,7 +25,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service android:name=".DownLoadService"/>
+
+        <service android:name=".DownLoadService" />
     </application>
 
 </manifest>
