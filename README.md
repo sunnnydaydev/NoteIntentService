@@ -103,7 +103,160 @@ onCreate -> onStartCommand -> onStart -> onHandleIntent -> onDestroy
 
 # 源码分析
 
+在分析IntentService的源码之前我们需要了解一点东西~
+
+###### 1、handler消息机制
+
+[参考](https://blog.csdn.net/qq_38350635/article/details/118683812?ops_request_misc=%257B%2522request%255Fid%2522%253A%2522167886867416782428669510%2522%252C%2522scm%2522%253A%252220140713.130102334.pc%255Fblog.%2522%257D&request_id=167886867416782428669510&biz_id=0&utm_medium=distribute.pc_search_result.none-task-blog-2~blog~first_rank_ecpm_v1~rank_v31_ecpm-3-118683812-null-null.blog_rank_default&utm_term=handler&spm=1018.2226.3001.4450)
+
+###### 2、HandlerThread
+
+啥是handlerThread呢？其实就是官方封装的一个api方便我们进行"主线程发送消息，子线程处理消息"，了解了handler的消息机制后
+我们可以尝试写下这个demo
+
+（1）主线程发送消息，子线程处理消息demo
+
+```kotlin
+class HandlerThreadActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_handler_thread)
+        // open a subThread
+        thread {
+            Looper.prepare()
+            val handler = Handler{
+                when (it.what) {
+                   0x11 ->{
+                       Log.d("HandlerThreadActivity","${Thread.currentThread()}收到:${it.obj}")
+                   }
+                }
+                return@Handler true
+            }
+            runOnUiThread {
+                Log.d("HandlerThreadActivity","${Thread.currentThread()}UI线程发送一条消息")
+                // ui 线程发送消息
+                handler.sendMessage(Message().apply {
+                    what = 0x11
+                    obj = "UI线程发送一条消息"
+                })
+            }
+            Looper.loop()
+        }
+    }
+}
+```
+
+D/HandlerThreadActivity: Thread[main,5,main]UI线程发送一条消息
+D/HandlerThreadActivity: Thread[Thread-4,5,main]收到:UI线程发送一条消息
+
+观察log发现我们实验成功了，其实不难理解主要是handler与Looper与Thread存在一定的绑定关系。接下来可以看下HandlerThread
+如何使用的。
+
+（2）HandlerThread使用
+
+```kotlin
+    /**
+     * test：HandlerThread usage
+     * */
+    private fun test2() {
+        // 1、创建对象，并开启线程
+        val handlerThread = HandlerThread("HandlerThread")
+        handlerThread.start()
+        // 2、核心，使用两个参数的构造（这里的handleMessage 回调再子线程中的）
+        val handler = Handler(handlerThread.looper) {
+            // 处理消息
+            return@Handler true
+        }
+        // 3、发送消息
+        handler.sendEmptyMessage(0x11)
+    }
+```
+
+借助系统的api就快速了不少，我们可以很方便实现"主线程发送消息，子线程处理消息"，接下来看看源码实现。
+
+（3）HandlerThread源码
+
+```java
+// 1、首先HandlerThread是一个普通的线程，只是这个线程绑定可Looper(持有Looper成员变成)
+public class HandlerThread extends Thread {
+    int mPriority;
+    int mTid = -1;
+    Looper mLooper;
+    // 构造传递的是线程名字
+    public HandlerThread(String name) {
+        super(name);
+        mPriority = Process.THREAD_PRIORITY_DEFAULT;
+    }
+
+    public HandlerThread(String name, int priority) {
+        super(name);
+        mPriority = priority;
+    }
+    
+    protected void onLooperPrepared() {
+    }
+
+    // 2、run方法内部进行了实现，核心有两步：
+    // (1) 创建Looper对象
+    // (2) 开启Loop轮训
+    @Override
+    public void run() {
+        mTid = Process.myTid();
+        Looper.prepare();
+        synchronized (this) {
+            mLooper = Looper.myLooper();
+            notifyAll();
+        }
+        Process.setThreadPriority(mPriority);
+        onLooperPrepared();
+        Looper.loop();
+        mTid = -1;
+    }
+    
+    // 3、提供了getLooper、getThreadHandler来获取对应的对象
+    public Looper getLooper() {
+        if (!isAlive()) {
+            return null;
+        }
+
+        boolean wasInterrupted = false;
+
+        // If the thread has been started, wait until the looper has been created.
+        synchronized (this) {
+            while (isAlive() && mLooper == null) {
+                try {
+                    wait();
+                } catch (InterruptedException e) {
+                    wasInterrupted = true;
+                }
+            }
+        }
+        
+        if (wasInterrupted) {
+            Thread.currentThread().interrupt();
+        }
+
+        return mLooper;
+    }
+    
+    @NonNull
+    public Handler getThreadHandler() {
+        if (mHandler == null) {
+            mHandler = new Handler(getLooper());
+        }
+        return mHandler;
+    }
+    
+}
+```
+
+可以看淡实现十分简单，只要明白handler的消息机制这个还是很好明白的。
+
 // todo 把HandlerThread 回顾下。 再分析IntentService。
+
+D/HandlerThreadActivity: Thread[main,5,main]UI线程发送一条消息
+2023-03-15 16:41:08.790 9377-9415/com.sunnyday.noteintentservice D/HandlerThreadActivity: Thread[Thread-4,5,main]收到:UI线程发送一条消息
 
 # 替代方案
 
