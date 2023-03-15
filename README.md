@@ -145,10 +145,11 @@ class HandlerThreadActivity : AppCompatActivity() {
         }
     }
 }
-```
 
 D/HandlerThreadActivity: Thread[main,5,main]UI线程发送一条消息
+        
 D/HandlerThreadActivity: Thread[Thread-4,5,main]收到:UI线程发送一条消息
+```
 
 观察log发现我们实验成功了，其实不难理解主要是handler与Looper与Thread存在一定的绑定关系。接下来可以看下HandlerThread
 如何使用的。
