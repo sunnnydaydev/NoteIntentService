@@ -93,7 +93,7 @@ onCreate -> onStartCommand -> onStart -> onHandleIntent -> onDestroy
 
 (4) 所有任务完成时onDestroy自动回调
 
-# 介绍
+# IntentService介绍
 
 - IntentService是Service的一个子类，内部维护了一个工作线程，他会把所有的任务都放到工作线程中处理。
 - 多次开启IntentService时，每一次的开启的任务都会放到工作线程中处理，当所有的任务完成时他会自动调用stopSelf方法来结束Service
@@ -252,14 +252,85 @@ public class HandlerThread extends Thread {
 }
 ```
 
-可以看淡实现十分简单，只要明白handler的消息机制这个还是很好明白的。
+可以看到实现十分简单，只要明白handler的消息机制这个还是很好明白的。
 
-// todo 把HandlerThread 回顾下。 再分析IntentService。
+###### 3、IntentService源码
 
-D/HandlerThreadActivity: Thread[main,5,main]UI线程发送一条消息
-2023-03-15 16:41:08.790 9377-9415/com.sunnyday.noteintentservice D/HandlerThreadActivity: Thread[Thread-4,5,main]收到:UI线程发送一条消息
+```java
 
-# 替代方案
+public abstract class IntentService extends Service {
+// 1、定义个Looper类型的成员变量（注意这个Looper绑定的线程为HandlerThread工作线程，这就意味着消息的处理是在工作线程）
+    private volatile Looper mServiceLooper;
+   
+    private volatile ServiceHandler mServiceHandler;
+    private String mName;
+    private boolean mRedelivery;
+    //2、定义个Handler，这个handler的handleMessage回调在工作线程（Looper绑定的为工作线程）
+    private final class ServiceHandler extends Handler {
+        public ServiceHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            onHandleIntent((Intent)msg.obj);
+            stopSelf(msg.arg1);
+        }
+    }
+    
+    public IntentService(String name) {
+        super();
+        mName = name;
+    }
+    
+    public void setIntentRedelivery(boolean enabled) {
+        mRedelivery = enabled;
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        //3、创建HandlerThread并绑定Looper
+        HandlerThread thread = new HandlerThread("IntentService[" + mName + "]");
+        thread.start();
+
+        mServiceLooper = thread.getLooper();
+        mServiceHandler = new ServiceHandler(mServiceLooper);
+    }
+
+    @Override
+    public void onStart(@Nullable Intent intent, int startId) {
+        Message msg = mServiceHandler.obtainMessage();
+        msg.arg1 = startId;
+        msg.obj = intent;
+        mServiceHandler.sendMessage(msg);
+    }
+    
+    @Override
+    public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
+        onStart(intent, startId);
+        return mRedelivery ? START_REDELIVER_INTENT : START_NOT_STICKY;
+    }
+
+    @Override
+    public void onDestroy() {
+        mServiceLooper.quit();
+    }
+    
+    // 这里需要注意 方法默认返回为空。从源码也可看出无bindService
+    @Override
+    @Nullable
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
+    
+    protected abstract void onHandleIntent(@Nullable Intent intent);
+}
+
+```
+
+
+# IntentService替代方案
 
 JobIntentService
 
